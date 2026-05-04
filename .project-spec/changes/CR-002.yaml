@@ -1,0 +1,26 @@
+schema: cr/v1
+id: CR-002
+status: proposed
+
+proposed_at: 2025-05-03
+author: tano
+
+domain: core
+summary: "Agregar comandos query y status al CLI"
+description: |
+  Extender el CLI con nuevos comandos para consultar el grafo:
+  - spec query: Búsqueda full-text
+  - spec status: Estado del proyecto
+
+affects:
+  entities: [cli, config, database]
+  files: [src/cli/*, src/schemas/*, src/utils/database.ts]
+  apis: []
+
+acceptance_criteria:
+  - "spec query retorna resultados de FTS5"
+  - "spec status muestra conteo de entidades"
+
+relationships:
+  depends_on: []
+  affects_decision: []

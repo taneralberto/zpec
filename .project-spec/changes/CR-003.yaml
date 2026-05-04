@@ -1,0 +1,23 @@
+schema: cr/v1
+id: CR-003
+status: proposed
+
+proposed_at: 2025-05-03
+author: tano
+
+domain: core
+summary: "Agregar tests de integración para CLI"
+description: |
+  Tests de integración para validar el flujo completo del CLI.
+
+affects:
+  entities: [tests]
+  files: [tests/**/*.test.ts]
+  apis: []
+
+acceptance_criteria:
+  - "Tests de integración para init, validate, rebuild"
+
+relationships:
+  depends_on: [CR-002]  # CR-002 está en proposed
+  affects_decision: []
