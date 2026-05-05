@@ -1,7 +1,6 @@
 import { readdir, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
-import { cwd } from "node:process";
-import { fileExists, SPEC_PATHS } from "./yaml.js";
+import { fileExists, SPEC_PATHS, resolveSpecPaths } from "./yaml.js";
 
 /**
  * Información sobre el estado del índice
@@ -13,6 +12,12 @@ export interface IndexStatus {
   newestYamlTimestamp: number | null;
   unindexedFiles: string[];
 }
+
+/**
+ * Resuelve el path base para operaciones de índice
+ * Si no se pasa projectPath, usa CWD
+ */
+const getDefaultProjectPath = (): string => process.cwd();
 
 /**
  * Obtiene el timestamp más reciente de archivos YAML en un directorio
@@ -56,7 +61,8 @@ async function getDbTimestamp(dbPath: string): Promise<number | null> {
 /**
  * Obtiene todos los archivos YAML más nuevos que el índice
  */
-async function getUnindexedFiles(dbPath: string): Promise<string[]> {
+async function getUnindexedFiles(dbPath: string, projectPath?: string): Promise<string[]> {
+  const basePath = projectPath || getDefaultProjectPath();
   const dbTimestamp = await getDbTimestamp(dbPath);
   
   if (dbTimestamp === null) {
@@ -70,7 +76,7 @@ async function getUnindexedFiles(dbPath: string): Promise<string[]> {
     ];
     
     for (const dir of dirs) {
-      const dirPath = join(cwd(), dir);
+      const dirPath = join(basePath, dir);
       if (await fileExists(dirPath)) {
         const files = await readdir(dirPath);
         const yamlFiles = files.filter((f: string) => extname(f) === ".yaml");
@@ -93,7 +99,7 @@ async function getUnindexedFiles(dbPath: string): Promise<string[]> {
   ];
 
   for (const dir of dirs) {
-    const dirPath = join(cwd(), dir);
+    const dirPath = join(basePath, dir);
     if (!(await fileExists(dirPath))) {
       continue;
     }
@@ -116,8 +122,9 @@ async function getUnindexedFiles(dbPath: string): Promise<string[]> {
 /**
  * Verifica si el índice está desactualizado
  */
-export async function checkIndexStatus(): Promise<IndexStatus> {
-  const dbPath = join(cwd(), SPEC_PATHS.graph);
+export async function checkIndexStatus(projectPath?: string): Promise<IndexStatus> {
+  const basePath = projectPath || getDefaultProjectPath();
+  const dbPath = join(basePath, SPEC_PATHS.graph);
   const dbTimestamp = await getDbTimestamp(dbPath);
 
   // Obtener timestamps de todos los directorios YAML
@@ -130,7 +137,7 @@ export async function checkIndexStatus(): Promise<IndexStatus> {
 
   let newestYaml = 0;
   for (const dir of dirs) {
-    const dirPath = join(cwd(), dir);
+    const dirPath = join(basePath, dir);
     const ts = await getNewestYamlTimestamp(dirPath);
     if (ts > newestYaml) {
       newestYaml = ts;
@@ -143,7 +150,7 @@ export async function checkIndexStatus(): Promise<IndexStatus> {
   // Obtener archivos sin indexar si está stale
   let unindexedFiles: string[] = [];
   if (stale || !exists) {
-    unindexedFiles = await getUnindexedFiles(dbPath);
+    unindexedFiles = await getUnindexedFiles(dbPath, basePath);
   }
 
   return {

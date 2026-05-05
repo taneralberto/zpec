@@ -96,3 +96,22 @@ export const SPEC_PATHS = {
   queries: join(SPEC_DIR, "queries"),
   graph: join(SPEC_DIR, "graph.db"),
 } as const;
+
+/**
+ * Resuelve paths completos para un proyecto específico.
+ * Si no se pasa projectPath, usa CWD.
+ * 
+ * @param projectPath - Path absoluto al directorio del proyecto
+ * @returns Objeto con los mismos keys que SPEC_PATHS pero con paths absolutos
+ */
+export function resolveSpecPaths(projectPath: string): Record<string, string> {
+  return {
+    config: join(projectPath, SPEC_PATHS.config),
+    changes: join(projectPath, SPEC_PATHS.changes),
+    decisions: join(projectPath, SPEC_PATHS.decisions),
+    constraints: join(projectPath, SPEC_PATHS.constraints),
+    domains: join(projectPath, SPEC_PATHS.domains),
+    queries: join(projectPath, SPEC_PATHS.queries),
+    graph: join(projectPath, SPEC_PATHS.graph),
+  };
+}

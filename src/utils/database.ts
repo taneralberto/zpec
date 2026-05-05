@@ -2,14 +2,15 @@ import Database from "better-sqlite3";
 import { join, dirname } from "node:path";
 import { mkdir, access } from "node:fs/promises";
 import { SPEC_PATHS } from "./yaml.js";
-import { cwd } from "node:process";
 import { createChangeFilesTable, createChangeApisTable } from "./indexers/change-affects.js";
 
 /**
  * Inicializa la conexión a la base de datos
+ * @param projectPath - Path al directorio del proyecto (default: CWD)
  */
-export function getDatabase(): Database.Database {
-  const dbPath = join(cwd(), SPEC_PATHS.graph);
+export function getDatabase(projectPath?: string): Database.Database {
+  const basePath = projectPath || process.cwd();
+  const dbPath = join(basePath, SPEC_PATHS.graph);
   
   // Asegurar que el directorio existe
   const db = new Database(dbPath);
@@ -204,9 +205,11 @@ export function clearAllTables(db: Database.Database): void {
 
 /**
  * Verifica si la base de datos existe
+ * @param projectPath - Path al directorio del proyecto (default: CWD)
  */
-export async function databaseExists(): Promise<boolean> {
-  const dbPath = join(cwd(), SPEC_PATHS.graph);
+export async function databaseExists(projectPath?: string): Promise<boolean> {
+  const basePath = projectPath || process.cwd();
+  const dbPath = join(basePath, SPEC_PATHS.graph);
   try {
     await access(dbPath);
     return true;

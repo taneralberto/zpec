@@ -1,6 +1,6 @@
-import { cwd } from "node:process";
 import { fileExists, SPEC_PATHS } from "../utils/yaml.js";
 import { getDatabase } from "../utils/database.js";
+import { resolveProjectPath } from "../utils/projects.js";
 import {
   getAllChanges,
   getChangesByDomain,
@@ -21,6 +21,7 @@ export interface QueryOptions {
   domain?: string;
   status?: string;
   format?: "table" | "json" | "md";
+  project?: string;
 }
 
 export interface SearchResult {
@@ -186,7 +187,8 @@ function parseQuery(query: string): {
  * Comando query - ejecuta queries sobre el grafo semántico
  */
 export async function query(queryStr: string, options: QueryOptions): Promise<void> {
-  const dbPath = cwd() + "/" + SPEC_PATHS.graph;
+  const projectPath = await resolveProjectPath(options.project);
+  const dbPath = projectPath + "/" + SPEC_PATHS.graph;
 
   if (!(await fileExists(dbPath))) {
     console.log("\n  ✗ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
@@ -194,12 +196,12 @@ export async function query(queryStr: string, options: QueryOptions): Promise<vo
   }
 
   // Verificar si el índice está desactualizado
-  const indexStatus = await checkIndexStatus();
+  const indexStatus = await checkIndexStatus(projectPath);
   if (indexStatus.stale) {
     console.log(formatStaleWarning(indexStatus));
   }
 
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
 
   try {
     const parsed = parseQuery(queryStr);
@@ -282,14 +284,15 @@ export async function query(queryStr: string, options: QueryOptions): Promise<vo
  * Lista todos los CRs
  */
 export async function listChanges(options: QueryOptions): Promise<void> {
-  const dbPath = cwd() + "/" + SPEC_PATHS.graph;
+  const projectPath = await resolveProjectPath(options.project);
+  const dbPath = projectPath + "/" + SPEC_PATHS.graph;
 
   if (!(await fileExists(dbPath))) {
     console.log("\n  ✗ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
     return;
   }
 
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
 
   try {
     const crs = options.domain
@@ -313,15 +316,16 @@ export async function listChanges(options: QueryOptions): Promise<void> {
 /**
  * Lista todos los ADRs
  */
-export async function listDecisions(): Promise<void> {
-  const dbPath = cwd() + "/" + SPEC_PATHS.graph;
+export async function listDecisions(options?: QueryOptions): Promise<void> {
+  const projectPath = await resolveProjectPath(options?.project);
+  const dbPath = projectPath + "/" + SPEC_PATHS.graph;
 
   if (!(await fileExists(dbPath))) {
     console.log("\n  ✗ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
     return;
   }
 
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
 
   try {
     const adrs = getAllDecisions(db);
@@ -344,8 +348,9 @@ export async function listDecisions(): Promise<void> {
 /**
  * Muestra el estado del grafo
  */
-export async function showStatus(): Promise<void> {
-  const dbPath = cwd() + "/" + SPEC_PATHS.graph;
+export async function showStatus(projectPath?: string): Promise<void> {
+  const resolvedPath = await resolveProjectPath(projectPath);
+  const dbPath = resolvedPath + "/" + SPEC_PATHS.graph;
 
   if (!(await fileExists(dbPath))) {
     console.log("\n  ✗ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
@@ -353,12 +358,12 @@ export async function showStatus(): Promise<void> {
   }
 
   // Verificar si el índice está desactualizado
-  const indexStatus = await checkIndexStatus();
+  const indexStatus = await checkIndexStatus(resolvedPath);
   if (indexStatus.stale) {
     console.log(formatStaleWarning(indexStatus));
   }
 
-  const db = getDatabase();
+  const db = getDatabase(resolvedPath);
 
   try {
     const changes = db.prepare("SELECT COUNT(*) as count FROM changes").get() as { count: number };

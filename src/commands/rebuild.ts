@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join, extname, basename } from "node:path";
-import { cwd } from "node:process";
 import { readYAML, SPEC_PATHS, fileExists } from "../utils/yaml.js";
+import { resolveProjectPath } from "../utils/projects.js";
 import { getDatabase, initializeSchema, clearAllTables } from "../utils/database.js";
 import { indexChange, indexDecision, indexConstraint, indexDomain } from "../utils/indexers/index.js";
 import type { CR } from "../schemas/cr.js";
@@ -12,6 +12,7 @@ import type { Domain } from "../schemas/domain.js";
 export interface RebuildOptions {
   force?: boolean;
   verbose?: boolean;
+  project?: string;
 }
 
 interface RebuildStats {
@@ -56,7 +57,7 @@ async function readYAMLFiles<T>(
  * Comando rebuild - reconstruye el índice SQLite desde los YAMLs
  */
 export async function rebuild(options: RebuildOptions): Promise<void> {
-  const projectPath = cwd();
+  const projectPath = await resolveProjectPath(options.project);
   const stats: RebuildStats = {
     changes: 0,
     decisions: 0,
@@ -80,7 +81,7 @@ export async function rebuild(options: RebuildOptions): Promise<void> {
   const validDomains = domainsResult.items.filter((d) => d.schema === "domain/v1" && d.id);
 
   // Inicializar base de datos
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
 
   // Crear schema si no existe
   initializeSchema(db);

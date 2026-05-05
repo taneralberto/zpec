@@ -1,10 +1,10 @@
 import { join, dirname } from "node:path";
-import { cwd } from "node:process";
 import { access, mkdir, writeFile, readFile, chmod } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
 export interface InstallHooksOptions {
   force?: boolean;
+  project?: string;
 }
 
 const POST_MERGE_HOOK = `#!/bin/bash
@@ -45,27 +45,31 @@ exit 0
 /**
  * Verifica si estamos en un repositorio git
  */
-export async function isGitRepository(): Promise<boolean> {
-  const gitDir = join(cwd(), ".git");
+export async function isGitRepository(projectPath?: string): Promise<boolean> {
+  const basePath = projectPath || process.cwd();
+  const gitDir = join(basePath, ".git");
   return existsSync(gitDir);
 }
 
 /**
  * Obtiene la ruta al directorio de hooks
  */
-export function getHooksDir(): string {
-  return join(cwd(), ".git", "hooks");
+export function getHooksDir(projectPath?: string): string {
+  const basePath = projectPath || process.cwd();
+  return join(basePath, ".git", "hooks");
 }
 
 /**
  * Instala los hooks de git
  */
 export async function installHooks(options: InstallHooksOptions): Promise<void> {
-  if (!(await isGitRepository())) {
+  const projectPath = options.project || process.cwd();
+  
+  if (!(await isGitRepository(projectPath))) {
     throw new Error("No es un repositorio git. Inicializá git primero con 'git init'");
   }
 
-  const hooksDir = getHooksDir();
+  const hooksDir = getHooksDir(projectPath);
 
   // Asegurar que el directorio de hooks existe
   if (!existsSync(hooksDir)) {
@@ -127,12 +131,13 @@ async function installHook(
 /**
  * Desinstala los hooks de git
  */
-export async function uninstallHooks(): Promise<void> {
-  if (!(await isGitRepository())) {
+export async function uninstallHooks(projectPath?: string): Promise<void> {
+  if (!(await isGitRepository(projectPath))) {
     throw new Error("No es un repositorio git");
   }
 
-  const hooksDir = getHooksDir();
+  const resolvedPath = projectPath || process.cwd();
+  const hooksDir = getHooksDir(resolvedPath);
   const hooks = ["post-merge", "pre-commit"];
 
   for (const hook of hooks) {
@@ -156,13 +161,14 @@ export async function uninstallHooks(): Promise<void> {
 /**
  * Verifica el estado de los hooks
  */
-export async function checkHooks(): Promise<void> {
-  if (!(await isGitRepository())) {
+export async function checkHooks(projectPath?: string): Promise<void> {
+  if (!(await isGitRepository(projectPath))) {
     console.log("\n  ⚠ No es un repositorio git\n");
     return;
   }
 
-  const hooksDir = getHooksDir();
+  const resolvedPath = projectPath || process.cwd();
+  const hooksDir = getHooksDir(resolvedPath);
   const hooks = [
     { name: "post-merge", desc: "Rebuild del índice después de pull" },
     { name: "pre-commit", desc: "Validación antes de commit" },

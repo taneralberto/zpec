@@ -643,31 +643,112 @@ spec query "X"
 
 ---
 
+## ⚠️ Resolución de proyecto en workspaces
+
+**Si estás en un workspace con múltiples proyectos**, cada uno con su propio `.project-spec/`, DEBES operar en el proyecto correcto.
+
+### Cómo saber en qué proyecto trabajar
+
+1. **El usuario menciona el proyecto** → "en el frontend", "en el backend" → Usá `--project <path>`
+2. **No estás seguro** → Ejecutá `spec projects` para ver los proyectos disponibles
+3. **Solo hay un proyecto** → El CLI lo detecta automáticamente
+
+### Flujo obligatorio en workspaces
+
+```
+Usuario: "Necesito crear un módulo en el frontend"
+
+1. Verificá qué proyectos existen:
+   spec projects
+
+2. Operá en el proyecto correcto:
+   spec status --project frontend
+   spec list crs --project frontend
+   spec rebuild --project frontend
+   spec validate --project frontend CR-001
+   spec add domain auth --project frontend
+```
+
+### Comandos con --project
+
+**TODOS** los comandos que operan en un proyecto aceptan `--project <path>`:
+
+| Comando | Con --project |
+|---------|--------------|
+| `spec status` | `spec status --project frontend` |
+| `spec rebuild` | `spec rebuild --project frontend` |
+| `spec validate` | `spec validate --project frontend` |
+| `spec query "X"` | `spec query "X" --project frontend` |
+| `spec list crs` | `spec list crs --project frontend` |
+| `spec list adrs` | `spec list adrs --project frontend` |
+| `spec list domains` | `spec list domains --project frontend` |
+| `spec graph` | `spec graph --project frontend` |
+| `spec add domain X` | `spec add domain X --project frontend` |
+
+### Prioridad de resolución
+
+El CLI resuelve el proyecto en este orden:
+
+1. `--project <path>` explícito → Usa ese path
+2. CWD tiene `.project-spec/` → Usa CWD
+3. Busca en subdirectorios:
+   - 1 proyecto → Lo usa automáticamente
+   - Múltiples proyectos → **Error con instrucciones**
+   - 0 proyectos → **Error con instrucciones**
+
+### Al crear CRs y ADRs
+
+**Si no estás en el directorio del proyecto**, usá `--project`:
+
+```bash
+# En workspace root, creando un CR para el frontend
+spec add domain billing --project frontend
+
+# Luego creá el archivo YAML directamente en el path correcto
+# frontend/.project-spec/changes/CR-001.yaml
+```
+
+**CRs y ADRs son independientes por proyecto.** No hay referencias cross-proyecto.
+
+---
+
 ## Comandos de referencia
 
 ```bash
+# Descubrir proyectos
+spec projects                     # Lista proyectos con .project-spec/
+
 # Estado y contexto
-spec status
-spec rebuild
+spec status                       # En CWD con .project-spec
+spec status --project frontend    # En proyecto específico
+spec rebuild                      # Reconstruir índice
+spec rebuild --project frontend   # Reconstruir en proyecto específico
 
 # Búsquedas
-spec query "<término>"           # Full-text search
-spec query "proposed CRs"        # Por status
-spec query "billing conflicts"   # Por domain
-spec query "CR-001 dependencies" # Relaciones
-spec list crs
-spec list adrs
-spec list domains
+spec query "<término>"            # Full-text search
+spec query "proposed CRs"         # Por status
+spec query "billing conflicts"    # Por domain
+spec query "CR-001 dependencies"  # Relaciones
+spec list crs                     # Lista CRs
+spec list crs --project frontend  # CRs del frontend
+spec list adrs                    # Lista ADRs
+spec list domains                 # Lista domains
 
 # Visualización de grafo
-spec graph                       # Grafo completo (Mermaid)
-spec graph core                  # Solo domain "core"
-spec graph CR-001                # Relaciones de un CR específico
-spec graph --format dot          # Output en Graphviz DOT
+spec graph                        # Grafo completo (Mermaid)
+spec graph core                   # Solo domain "core"
+spec graph CR-001                 # Relaciones de un CR específico
+spec graph --format dot           # Output en Graphviz DOT
+spec graph --project frontend    # Grafo del frontend
 
 # Validación con conflict detection
-spec validate                    # Todos los archivos
-spec validate CR-XXX             # CR específico + conflictos
+spec validate                     # Todos los archivos
+spec validate CR-XXX              # CR específico + conflictos
+spec validate --project frontend # Validar en proyecto específico
+
+# Agregar elementos
+spec add domain billing           # Nuevo domain
+spec add domain auth --project frontend  # Domain en proyecto específico
 
 # Hooks
 spec hooks status

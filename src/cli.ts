@@ -7,6 +7,7 @@ import { rebuild } from "./commands/rebuild.js";
 import { query, listChanges, listDecisions, showStatus } from "./commands/query.js";
 import { graph } from "./commands/graph.js";
 import { installHooks, uninstallHooks, checkHooks } from "./commands/hooks/index.js";
+import { listProjects } from "./commands/projects.js";
 
 const program = new Command();
 
@@ -49,6 +50,14 @@ program
     }
   });
 
+// Comando: spec projects
+program
+  .command("projects")
+  .description("Lista los proyectos con .project-spec/ en el workspace")
+  .action(async () => {
+    await listProjects();
+  });
+
 // Comando: spec add
 const addCommand = program
   .command("add")
@@ -58,10 +67,11 @@ addCommand
   .command("domain <name>")
   .description("Agrega un nuevo domain (bounded context)")
   .option("-f, --force", "Sobrescribir si ya existe")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (name, options) => {
     try {
       const { addDomain } = await import("./commands/add.js");
-      await addDomain(name, { force: options.force });
+      await addDomain(name, { force: options.force, project: options.project });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error desconocido";
       console.error(`\n✗ Error: ${message}\n`);
@@ -74,8 +84,9 @@ program
   .command("validate [target]")
   .description("Valida archivos YAML contra schemas")
   .option("-s, --strict", "Fallar en warnings, no solo errors")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (target, options) => {
-    await validate(target, { strict: options.strict });
+    await validate(target, { strict: options.strict, project: options.project });
   });
 
 // Comando: spec rebuild
@@ -84,10 +95,12 @@ program
   .description("Reconstruye el índice SQLite desde los YAMLs")
   .option("-f, --force", "Reconstruir aunque no haya cambios")
   .option("-v, --verbose", "Mostrar progreso detallado")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (options) => {
     await rebuild({
       force: options.force,
       verbose: options.verbose,
+      project: options.project,
     });
   });
 
@@ -97,10 +110,12 @@ program
   .description("Ejecuta queries sobre el grafo semántico")
   .option("-d, --domain <name>", "Limitar a domain específico")
   .option("-f, --format <type>", "Formato de salida: table, json, md", "table")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (queryStr, options) => {
     await query(queryStr, {
       domain: options.domain,
       format: options.format,
+      project: options.project,
     });
   });
 
@@ -109,20 +124,24 @@ program
   .command("list [type]")
   .description("Lista CRs, ADRs o domains")
   .option("-d, --domain <name>", "Filtrar por domain")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (type, options) => {
+    const projectOption = options.project;
     switch (type) {
       case "crs":
       case "changes":
-        await listChanges({ domain: options.domain });
+        await listChanges({ domain: options.domain, project: projectOption });
         break;
       case "adrs":
       case "decisions":
-        await listDecisions();
+        await listDecisions({ project: projectOption });
         break;
       case "domains":
         const { getAllDomains } = await import("./utils/indexers/index.js");
         const { getDatabase } = await import("./utils/database.js");
-        const db = getDatabase();
+        const { resolveProjectPath } = await import("./utils/projects.js");
+        const projectPath = await resolveProjectPath(projectOption);
+        const db = getDatabase(projectPath);
         const domains = getAllDomains(db);
         console.log("\n  Domains:\n");
         for (const domain of domains) {
@@ -133,7 +152,7 @@ program
         break;
       default:
         // List all
-        await showStatus();
+        await showStatus(projectOption);
     }
   });
 
@@ -141,8 +160,9 @@ program
 program
   .command("status")
   .description("Muestra el estado actual del grafo semántico")
-  .action(async () => {
-    await showStatus();
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
+  .action(async (options) => {
+    await showStatus(options.project);
   });
 
 // Comando: spec graph
@@ -151,10 +171,12 @@ program
   .description("Genera visualización del grafo en formato Mermaid o DOT")
   .option("-f, --format <type>", "Formato de salida: mermaid, dot", "mermaid")
   .option("-d, --domain <name>", "Filtrar por domain específico")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (target, options) => {
     await graph(target, {
       format: options.format,
       domain: options.domain,
+      project: options.project,
     });
   });
 
@@ -167,9 +189,10 @@ hooksCommand
   .command("install")
   .description("Instala los hooks de git (post-merge, pre-commit)")
   .option("-f, --force", "Sobrescribir hooks existentes")
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
   .action(async (options) => {
     try {
-      await installHooks({ force: options.force });
+      await installHooks({ force: options.force, project: options.project });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error desconocido";
       console.error(`\n✗ Error: ${message}\n`);
@@ -180,9 +203,10 @@ hooksCommand
 hooksCommand
   .command("uninstall")
   .description("Desinstala los hooks de git")
-  .action(async () => {
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
+  .action(async (options) => {
     try {
-      await uninstallHooks();
+      await uninstallHooks(options.project);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error desconocido";
       console.error(`\n✗ Error: ${message}\n`);
@@ -193,8 +217,9 @@ hooksCommand
 hooksCommand
   .command("status")
   .description("Verifica el estado de los hooks de git")
-  .action(async () => {
-    await checkHooks();
+  .option("-p, --project <path>", "Path al proyecto (default: CWD)")
+  .action(async (options) => {
+    await checkHooks(options.project);
   });
 
 // Comando: spec propose (placeholder para Fase 2)

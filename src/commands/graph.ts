@@ -1,5 +1,5 @@
-import { cwd } from "node:process";
 import { fileExists, SPEC_PATHS } from "../utils/yaml.js";
+import { resolveProjectPath } from "../utils/projects.js";
 import { getDatabase } from "../utils/database.js";
 import { getAllChanges, getChange } from "../utils/indexers/change.js";
 import { getAllDecisions } from "../utils/indexers/decision.js";
@@ -12,6 +12,7 @@ export interface GraphOptions {
   format?: "mermaid" | "dot";
   domain?: string;
   output?: string;
+  project?: string;
 }
 
 interface GraphNode {
@@ -337,7 +338,8 @@ function generateCRGraph(db: ReturnType<typeof getDatabase>, crId: string, forma
  * Comando graph - genera visualización del grafo
  */
 export async function graph(target?: string, options?: GraphOptions): Promise<void> {
-  const dbPath = cwd() + "/" + SPEC_PATHS.graph;
+  const projectPath = await resolveProjectPath(options?.project);
+  const dbPath = projectPath + "/" + SPEC_PATHS.graph;
 
   if (!(await fileExists(dbPath))) {
     console.log("\n  ✗ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
@@ -345,12 +347,12 @@ export async function graph(target?: string, options?: GraphOptions): Promise<vo
   }
 
   // Verificar si el índice está desactualizado
-  const indexStatus = await checkIndexStatus();
+  const indexStatus = await checkIndexStatus(projectPath);
   if (indexStatus.stale) {
     console.log(formatStaleWarning(indexStatus));
   }
 
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
   const format = options?.format || "mermaid";
 
   try {

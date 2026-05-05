@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join, extname, basename } from "node:path";
-import { cwd } from "node:process";
 import { readAndValidateYAML, SPEC_PATHS, fileExists } from "../utils/yaml.js";
+import { resolveProjectPath } from "../utils/projects.js";
 import {
   CRSchema,
   ADRSchema,
@@ -16,6 +16,7 @@ import { detectConflicts, formatConflicts } from "../utils/conflicts.js";
 
 export interface ValidateOptions {
   strict?: boolean;
+  project?: string;
 }
 
 export interface ValidationResult {
@@ -113,8 +114,7 @@ async function validateDirectory(dirPath: string): Promise<ValidationResult[]> {
 /**
  * Resuelve el path correcto para un ID o archivo
  */
-function resolveTargetPath(target: string): string {
-  const projectPath = cwd();
+function resolveTargetPath(target: string, projectPath: string): string {
   const upperTarget = target.toUpperCase();
   
   // Si es un ID, resolver al path correcto
@@ -155,18 +155,18 @@ export async function validate(
   target?: string,
   options?: ValidateOptions,
 ): Promise<void> {
-  const projectPath = cwd();
+  const projectPath = await resolveProjectPath(options?.project);
   const results: ValidationResult[] = [];
 
   // Si se especifica un archivo específico
   if (target) {
-    const filePath = resolveTargetPath(target);
+    const filePath = resolveTargetPath(target, projectPath);
     const result = await validateFile(filePath);
     results.push(result);
 
     // Si es un CR válido, detectar conflictos
     if (result.valid && result.type === "cr" && isCRId(target)) {
-      await detectAndReportConflicts(target.toUpperCase());
+      await detectAndReportConflicts(target.toUpperCase(), projectPath);
     }
   } else {
     // Validar todos los archivos
@@ -230,18 +230,18 @@ export async function validate(
 /**
  * Detecta y reporta conflictos para un CR específico
  */
-async function detectAndReportConflicts(target: string): Promise<void> {
+async function detectAndReportConflicts(target: string, projectPath: string): Promise<void> {
   // Extraer el ID del CR del target (ej: ".project-spec/changes/CR-001.yaml" -> "CR-001")
   const crId = basename(target, ".yaml");
 
   // Verificar que el índice existe
-  const dbPath = join(cwd(), SPEC_PATHS.graph);
+  const dbPath = join(projectPath, SPEC_PATHS.graph);
   if (!(await fileExists(dbPath))) {
     console.log("  ⚠ Índice no encontrado. Ejecutá 'spec rebuild' primero.\n");
     return;
   }
 
-  const db = getDatabase();
+  const db = getDatabase(projectPath);
   const cr = getChange(db, crId);
 
   if (!cr) {

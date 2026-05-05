@@ -1,19 +1,21 @@
 import { join } from "node:path";
-import { cwd } from "node:process";
 import { writeYAML, fileExists, SPEC_PATHS } from "../utils/yaml.js";
+import { resolveProjectPath } from "../utils/projects.js";
 import type { Domain } from "../schemas/domain.js";
 
 export interface AddDomainOptions {
   force?: boolean;
+  project?: string;
 }
 
 /**
  * Agrega un nuevo domain al proyecto
  */
 export async function addDomain(name: string, options: AddDomainOptions): Promise<void> {
+  const projectPath = await resolveProjectPath(options.project);
   const normalizedName = name.toLowerCase().replace(/[^a-z0-9-]/g, "");
   const domainId = `DOMAIN-${normalizedName}`;
-  const domainFile = join(cwd(), SPEC_PATHS.domains, `${domainId}.yaml`);
+  const domainFile = join(projectPath, SPEC_PATHS.domains, `${domainId}.yaml`);
 
   // Verificar si ya existe el archivo
   if (!options.force && await fileExists(domainFile)) {

@@ -1,6 +1,5 @@
 import { mkdir } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { cwd } from "node:process";
 import { writeYAML, fileExists, SPEC_DIR, SPEC_PATHS } from "../utils/yaml.js";
 import { createDefaultConfig, type Config } from "../schemas/index.js";
 
@@ -13,7 +12,7 @@ export interface InitOptions {
  * Crea la estructura .project-spec/ en el proyecto
  */
 export async function init(options: InitOptions): Promise<void> {
-  const projectPath = cwd();
+  const projectPath = process.cwd();
   const specPath = join(projectPath, SPEC_DIR);
 
   // Verificar si ya existe
