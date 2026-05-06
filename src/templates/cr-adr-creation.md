@@ -1,4 +1,5 @@
 ---
+name: cr-adr-creation
 description: Skill para crear CRs, ADRs y Domains. Incluye convenciones de nombres, schemas, status válidos, triggers para ADR, y errores comunes. Usar cuando se esté en el flujo de creación de artefactos.
 ---
 

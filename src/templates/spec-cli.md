@@ -1,4 +1,5 @@
 ---
+name: spec-cli
 description: Skill para operar el CLI spec. Usar cuando se necesite consultar estado, buscar contexto, validar, reconstruir índice, o visualizar el grafo. Incluye manejo de workspaces multi-proyecto.
 ---
 
